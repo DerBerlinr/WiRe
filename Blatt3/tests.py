@@ -63,8 +63,7 @@ class Tests(unittest.TestCase):
         # check if images are loaded properly
         self.assertTrue(len(self.imgs_train) == 150)
         self.assertTrue(isinstance(self.imgs_train[0], np.ndarray))
-        self.assertTrue(
-            self.dim_x == self.imgs_train[0].shape[1] == 98 and self.dim_y == self.imgs_train[0].shape[0] == 116)
+        self.assertTrue(self.dim_x == self.imgs_train[0].shape[1] == 98 and self.dim_y == self.imgs_train[0].shape[0] == 116)
 
     def test_2_setup_data_matrix(self):
         self.setup_tests("setup_data_matrix")

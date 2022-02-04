@@ -1,6 +1,7 @@
+import matplotlib.image
+import numpy
 import numpy as np
 import lib
-import matplotlib as mpl
 
 
 ####################################################################################################
@@ -28,10 +29,14 @@ def power_iteration(M: np.ndarray, epsilon: float = -1.0) -> (np.ndarray, list):
     if M.shape[0] != M.shape[1]:
         raise ValueError("Matrix not nxn")
 
-    # TODO: set epsilon to default value if not set by user
+    # set epsilon to default value if not set by user
+    if epsilon == -1.0:
+        epsilon = np.finfo(M.dtype).eps
+        epsilon *= 5
 
-    # TODO: normalized random vector of proper size to initialize iteration
-    vector = np.zeros(M.shape[0])
+    # normalized random vector of proper size to initialize iteration
+    rnd_vector = np.random.randn(M.shape[0])
+    vector = rnd_vector / np.linalg.norm(rnd_vector)
 
     # Initialize residual list and residual of current eigenvector estimate
     residuals = []
@@ -39,9 +44,12 @@ def power_iteration(M: np.ndarray, epsilon: float = -1.0) -> (np.ndarray, list):
 
     # Perform power iteration
     while residual > epsilon:
-        vector = np.dot(M, vector)
-        residuals = abs(vector).max()
-        vector = vector / vector.max()
+        new_vector = np.dot(M, vector)
+        new_vector = new_vector / np.linalg.norm(new_vector)
+        residual = np.linalg.norm(new_vector - vector)
+
+        vector = new_vector
+        residuals.append(residual)
 
     return vector, residuals
 
@@ -65,13 +73,18 @@ def load_images(path: str, file_ending: str=".png") -> (list, int, int):
 
     images = []
 
-    # TODO read each image in path as numpy.ndarray and append to images
-    # Useful functions: lib.list_directory(), matplotlib.image.imread(), numpy.asarray()
+    # read each image in path as numpy.ndarray and append to images
+    paths = []
+    for file in lib.list_directory(path):
+        if file.endswith(file_ending):
+            paths.append(file)
+    paths.sort()
 
+    for image in paths:
+        images.append(numpy.asarray(matplotlib.image.imread(path + image), np.float64))
 
-    # TODO set dimensions according to first image in images
-    dimension_y = 0
-    dimension_x = 0
+    # set dimensions according to first image in images
+    dimension_y, dimension_x = np.shape(images[0])
 
     return images, dimension_x, dimension_y
 
@@ -86,11 +99,15 @@ def setup_data_matrix(images: list) -> np.ndarray:
     Return:
     D: data matrix that contains the flattened images as rows
     """
-    # TODO: initialize data matrix with proper size and data type
-    D = np.zeros((0, 0))
+    # initialize data matrix with proper size and data type
+    image_count = len(images)
+    width, height = images[0].shape
+    D = np.zeros((image_count, width * height))
 
-    # TODO: add flattened images to data matrix
+    # add flattened images to data matrix
 
+    for i in range(image_count):
+        D[i] = images[i].flatten()
 
     return D
 
@@ -108,12 +125,11 @@ def calculate_pca(D: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarray):
     mean_data: mean that was subtracted from data
     """
 
-    # TODO: subtract mean from data / center data at origin
-    mean_data = np.zeros((1, 1))
+    mean_data = np.mean(D, 0)
 
-    # TODO: compute left and right singular vectors and singular values
-    # Useful functions: numpy.linalg.svd(..., full_matrices=False)
-    svals, pcs = [np.ones((1, 1))] * 2
+    D -= mean_data
+
+    u, svals, pcs = np.linalg.svd(D, full_matrices=False)
 
     return pcs, svals, mean_data
 
@@ -131,10 +147,19 @@ def accumulated_energy(singular_values: np.ndarray, threshold: float = 0.8) -> i
     k: threshold index
     """
 
-    # TODO: Normalize singular value magnitudes
+    # Normalize singular value magnitudes
+    singular_values = singular_values / np.sum(singular_values)
+
+    # Determine k that first k singular values make up threshold percent of magnitude
+    size = singular_values.shape[0]
+    sval_sum = 0.0
 
     k = 0
-    # TODO: Determine k that first k singular values make up threshold percent of magnitude
+    for j in range(size):
+        k += 1
+        sval_sum = sval_sum + np.sum(singular_values[j])
+        if sval_sum > threshold:
+            break
 
     return k
 
@@ -152,11 +177,14 @@ def project_faces(pcs: np.ndarray, images: list, mean_data: np.ndarray) -> np.nd
     coefficients: basis function coefficients for input images, each row contains coefficients of one image
     """
 
-    # TODO: initialize coefficients array with proper size
-    coefficients = np.zeros((1, 1))
+    # initialize coefficients array with proper size
+    size = pcs.shape[0]
+    length = len(images)
+    coefficients = np.zeros((length, size))
 
-    # TODO: iterate over images and project each normalized image into principal component basis
-
+    # iterate over images and project each normalized image into principal component basis
+    for image in range(length):
+        coefficients[image] = np.dot(pcs, (images[image].flatten() - mean_data))
 
     return coefficients
 
@@ -179,24 +207,30 @@ np.ndarray, list, np.ndarray):
     coeffs_test: Eigenface coefficient of test images
     """
 
-    # TODO: load test data set
-    imgs_test = []
+    # load test data set
+    imgs_test, a, b = load_images(path_test)
 
-    # TODO: project test data set into eigenbasis
-    coeffs_test = np.zeros(coeffs_train.shape)
+    # project test data set into eigenbasis
+    coeffs_test = project_faces(pcs, imgs_test, mean_data)
 
+    # Initialize scores matrix with proper size
+    len_test = len(coeffs_test)
+    len_train = len(coeffs_train)
+    scores = np.zeros((len_train, len_test))
 
-    # TODO: Initialize scores matrix with proper size
-    scores = np.zeros((1, 1))
-    # TODO: Iterate over all images and calculate pairwise correlation
-
+    # Iterate over all images and calculate pairwise correlation
+    for test_count in range(len_test):
+        for train_count in range(len_train):
+            scores[train_count, test_count] = np.math.acos((np.dot(coeffs_test[test_count], coeffs_train[train_count]))
+                                                           / (np.linalg.norm(coeffs_train[train_count]) *
+                                                              np.linalg.norm(coeffs_test[test_count])))
 
     return scores, imgs_test, coeffs_test
 
 
 if __name__ == '__main__':
 
-    A = np.random.randn( 7, 7)
+    A = np.random.randn(7, 7)
     A = A.transpose().dot(A)
     L,U = np.linalg.eig( A)
     L[1] = L[0] - 10**-3
