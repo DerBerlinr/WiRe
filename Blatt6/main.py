@@ -22,45 +22,45 @@ def find_root_bisection(f: object, lival: np.floating, rival: np.floating, ival_
     assert (n_iters_max > 0)
     assert (rival > lival)
 
-    # TODO: set meaningful minimal interval size if not given as parameter, e.g. 10 * eps
+    # set meaningful minimal interval size if not given as parameter, e.g. 10 * eps
     ival_size = 10 * np.finfo(float).eps
-    # intialize iteration
-    fl = f(lival)
-    fr = f(rival)
-    # make sure the given interval contains a root
-    assert (not ((fl > 0.0 and fr > 0.0) or (fl < 0.0 and fr < 0.0)))
+    flival = f(lival)
+    frival = f(rival)
+    assert (not ((flival > 0.0 and frival > 0.0) or (flival < 0.0 and frival < 0.0)))
 
-    n_iterations = 0
-    # TODO: loop until final interval is found, stop if max iterations are reached
+    n_iters = 0
+    # loop until final interval is found, stop if max iterations are reached
     while rival - lival > ival_size:
-        mid = (lival + rival) / 2
-        if f(mid) * f(rival) > 0:
-            rival = mid
-        elif f(mid) * f(rival) < 0:
+        mid = 0.5 * (lival + rival)
+        if f(mid) * f(rival) < 0:
             lival = mid
+        elif f(mid) * f(rival) > 0:
+            rival = mid
         else:
             break
-        n_iterations += 1
-        if n_iterations > n_iters_max:
+        n_iters += 1
+        if n_iters_max < n_iters:
             break
 
-    # TODO: calculate final approximation to root
-    root = np.float64(mid)
-
-    return root
+    # calculate final approximation to root
+    return np.float64(mid)
 
 
 def func_f(x):
-    return x**3 - 2*x + 2 # -1.76929235423863
+    return x**3 - 2*x + 2  # -1.76929235423863
+
 
 def deri_f(x):
     return 3 * x**2 - 2
 
+
 def func_g(x):
     return 6*x/(x**2 + 1)
 
+
 def deri_g(x):
     return 6 * (1 - x**2) / (x**2 + 1)**2
+
 
 def find_root_newton(f: object, df: object, start: np.inexact, n_iters_max: int = 256) -> (np.inexact, int):
     """
@@ -82,23 +82,24 @@ def find_root_newton(f: object, df: object, start: np.inexact, n_iters_max: int 
     # Initialize root with start value
     root = start
 
-    # TODO: chose meaningful convergence criterion eps, e.g 10 * eps
+    # chose meaningful convergence criterion eps, e.g 10 * eps
     f_eps = 10 * np.finfo(float).eps
 
     # Initialize iteration
-    fc = f(root)
-    dfc = df(root)
+    f_root = f(root)
+    df_root = df(root)
     n_iterations = 0
 
-    # TODO: loop until convergence criterion eps is met
-    while abs(fc) > f_eps:
-        # TODO: return root and n_iters_max+1 if abs(derivative) is below f_eps or abs(root) is above 1e5 (to avoid divergence)
-        if abs(dfc) < f_eps or abs(root) > 1e5:
+    # loop until convergence criterion eps is met
+    while f_eps < abs(f_root):
+        # return root and n_iters_max+1 if abs(derivative) is below f_eps or abs(root) is above 1e5 (to avoid
+        # divergence)
+        if abs(df_root) < f_eps or abs(root) > 1e5:
             return root, n_iters_max + 1
-        # TODO: update root value and function/dfunction values
-        root = root - fc / dfc
-        fc = f(root)
-        dfc = df(root)
+        # update root value and function/dfunction values
+        root = root - f_root / df_root
+        f_root = f(root)
+        df_root = df(root)
         # TODO: avoid infinite loops and return (root, n_iters_max+1)
         if n_iterations >= n_iters_max:
             return root, n_iters_max + 1
@@ -120,20 +121,21 @@ def generate_newton_fractal(f: object, df: object, roots: np.ndarray, sampling: 
     sampling: sampling of complex plane as 2d array
     n_iters_max: maxium number of iterations the newton method can calculate to find a root
 
-    Return:
-    result: 3d array that contains for each sample in sampling the index of the associated root and the number of iterations performed to reach it.
+    Return: result: 3d array that contains for each sample in sampling the index of the associated root and the
+    number of iterations performed to reach it.
     """
 
     result = np.zeros((sampling.shape[0], sampling.shape[1], 2), dtype=int)
 
-    # TODO: iterate over sampling grid
+    # iterate over sampling grid
     for x in range(sampling.shape[0]):
         for y in range(sampling.shape[1]):
-            # TODO: run Newton iteration to find a root and the iterations for the sample (in maximum n_iters_max iterations)
+            # run Newton iteration to find a root and the iterations for the sample (in maximum n_iters_max iterations)
             newton_root, n_iterations = find_root_newton(f, df, sampling[x, y], n_iters_max)
-            # TODO: determine the index of the closest root from the roots array. The functions np.argmin and np.tile could be helpful.
+            # determine the index of the closest root from the roots array. The functions np.argmin and np.tile could
+            # be helpful.
             index = np.argmin(abs(roots - newton_root))
-            # TODO: write the index and the number of needed iterations to the result
+            # write the index and the number of needed iterations to the result
             result[x, y] = np.array([index, n_iterations])
     return result
 
