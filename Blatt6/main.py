@@ -158,9 +158,9 @@ def surface_area(v: np.ndarray, f: np.ndarray) -> float:
     # initialize area
     area = 0.0
     
-    # TODO: iterate over all triangles and sum up their area
+    # iterate over all triangles and sum up their area
     for i in range(len(f)):
-        area += np.linalg.norm(np.cross(v[f[i, 1]] - v[f[i, 0]], v[f[i, 2]] - v[f[i, 0]])) / 2
+        area += 0.5 * np.linalg.norm(np.cross(v[f[i, 1]] - v[f[i, 0]], v[f[i, 2]] - v[f[i, 0]]))
     return area
 
 
@@ -179,24 +179,24 @@ def surface_area_gradient(v: np.ndarray, f: np.ndarray) -> np.ndarray:
     # intialize the gradient
     gradient = np.zeros(v.shape)
     
-    # TODO: iterate over all triangles and sum up the vertices gradients
+    # iterate over all triangles and sum up the vertices gradients
     for i in range(len(f)):
-        ab = v[f[i, 1]] - v[f[i, 0]]
-        ac = v[f[i, 2]] - v[f[i, 0]]
-        bc = v[f[i, 2]] - v[f[i, 1]]
+        v1 = v[f[i, 2]] - v[f[i, 1]]
+        v2 = v[f[i, 2]] - v[f[i, 0]]
+        v3 = v[f[i, 1]] - v[f[i, 0]]
 
-        grad_a = -np.cross(np.cross(ab, ac), bc)
-        grad_a *= np.linalg.norm(bc) / np.linalg.norm(grad_a)
+        g1 = -np.cross(np.cross(-v2, -v1), v3)
+        g1 *= np.linalg.norm(v3) / np.linalg.norm(g1)
 
-        grad_b = -np.cross(np.cross(-ab, bc), ac)
-        grad_b *= np.linalg.norm(ac) / np.linalg.norm(grad_b)
+        g2 = -np.cross(np.cross(-v3, v1), v2)
+        g2 *= np.linalg.norm(v2) / np.linalg.norm(g2)
 
-        grad_c = -np.cross(np.cross(-ac, -bc), ab)
-        grad_c *= np.linalg.norm(ab) / np.linalg.norm(grad_c)
+        g3 = -np.cross(np.cross(v3, v2), v1)
+        g3 *= np.linalg.norm(v1) / np.linalg.norm(g3)
 
-        gradient[f[i, 0]] += grad_a
-        gradient[f[i, 1]] += grad_b
-        gradient[f[i, 2]] += grad_c
+        gradient[f[i, 2]] += g1
+        gradient[f[i, 1]] += g2
+        gradient[f[i, 0]] += g3
 
     return gradient
 
@@ -218,35 +218,34 @@ def gradient_descent_step(v: np.ndarray, f: np.ndarray, c: np.ndarray, epsilon: 
     gradient: calculated gradient
     """
 
-    # TODO: calculate gradient and area before changing the surface
+    # calculate gradient and area before changing the surface
     gradient = surface_area_gradient(v, f)
     area = surface_area(v, f)
-    # TODO: calculate indices of vertices whose position can be changed
-    changeable = []
+    # calculate indices of vertices whose position can be changed
+    temp_data = []
     for i in range(len(v)):
         if i not in c:
-            changeable.append(i)
-    # TODO: find suitable step size so that area can be decreased, don't change v yet
-    step = 1.0
-    new_v = v.copy()
-    for i in changeable:
-        new_v[i] = v[i] + step * gradient[i]
-    new_area = surface_area(new_v, f)
-    while area - new_area <= epsilon:
-        step = step / 2
-        for i in changeable:
-            new_v[i] = v[i] + step * gradient[i]
-        new_area = surface_area(new_v, f)
+            temp_data.append(i)
+    # find suitable step size so that area can be decreased, don't change v yet
+    step = 1
+    temp_v = v.copy()
+    for i in temp_data:
+        temp_v[i] = v[i] + step * gradient[i]
+    temp_area = surface_area(temp_v, f)
+    while epsilon > area - temp_area:
+        step /= 2
+        for i in temp_data:
+            temp_v[i] = v[i] + step * gradient[i]
+        temp_area = surface_area(temp_v, f)
         if step <= epsilon:
             break
-    # TODO: now update vertex positions in v
-    for i in changeable:
+    # now update vertex positions in v
+    for i in temp_data:
         v[i] = v[i] + step * gradient[i]
-    # v = new_v.copy()
-    # TODO: Check if new area differs only epsilon from old area
-    new_area = surface_area(v, f)
-    if area - new_area > epsilon:
-        return False, new_area, v, gradient
+    # Check if new area differs only epsilon from old area
+    temp_area = surface_area(v, f)
+    if area - temp_area > epsilon:
+        return False, temp_area, v, gradient
     # Return (True, area, v, gradient) to show that we converged and otherwise (False, area, v, gradient)
     return True, area, v, gradient
 
